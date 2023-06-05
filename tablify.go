@@ -1,3 +1,6 @@
+// package tablifier expose two function to print nice table with
+// UTF-8 border for slices of struct.  It uses exposed field name to
+// determine the column name, and then print each lines.
 package tablifier
 
 import (
@@ -5,28 +8,17 @@ import (
 	"os"
 )
 
-type Tablifier struct {
+// Tablify takes a slice and prints a table to stdout
+func Tablify(slice interface{}) error {
+	return Ftablify(os.Stdout, slice)
 }
 
-var defaultTablifier = Tablifier{}
-
-func (t Tablifier) Tablify(slice interface{}) error {
-	return t.Ftablify(os.Stdout, slice)
-}
-
-func (t Tablifier) Ftablify(w io.Writer, slice interface{}) error {
+// Tablify takes a slice and prints a table to stdout
+func Ftablify(w io.Writer, slice interface{}) error {
 	tdata, err := reflectSlice(slice)
 	if err != nil {
 		return err
 	}
 	tdata.fprintf(w)
 	return nil
-}
-
-func Tablify(slice interface{}) error {
-	return Ftablify(os.Stdout, slice)
-}
-
-func Ftablify(w io.Writer, slice interface{}) error {
-	return defaultTablifier.Ftablify(w, slice)
 }

@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
+
+	"golang.org/x/exp/constraints"
 )
 
 type tableData struct {
@@ -27,6 +30,20 @@ func checkType(slice interface{}) (reflect.Type, error) {
 	return elemType, nil
 }
 
+var escapeRx = regexp.MustCompile(`\033\[[\d;]*[a-zA-Z]`)
+
+func computeLength(s string) int {
+	escaped := escapeRx.ReplaceAllString(s, "")
+	return len(escaped)
+}
+
+func max[T constraints.Ordered](a, b T) T {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func (d *tableData) parseColumns(elemType reflect.Type) {
 	d.columns = make([]string, elemType.NumField())
 	d.columnsSize = make([]int, elemType.NumField())
@@ -38,7 +55,7 @@ func (d *tableData) parseColumns(elemType reflect.Type) {
 			columnName = nameTag
 		}
 		d.columns[i] = columnName
-		d.columnsSize[i] = len(columnName)
+		d.columnsSize[i] = computeLength(columnName)
 	}
 }
 
@@ -50,9 +67,7 @@ func (d *tableData) parseLine(elem reflect.Value) ([]string, error) {
 	for i := 0; i < len(d.columns); i++ {
 		value := fmt.Sprintf("%v", elem.Field(i))
 		res[i] = value
-		if len(value) > d.columnsSize[i] {
-			d.columnsSize[i] = len(value)
-		}
+		d.columnsSize[i] = max(d.columnsSize[i], computeLength(value))
 	}
 	return res, nil
 }
