@@ -5,8 +5,8 @@ import (
 	"io"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/exp/constraints"
 )
@@ -34,7 +34,7 @@ var escapeRx = regexp.MustCompile(`\033\[[\d;]*[a-zA-Z]`)
 
 func computeLength(s string) int {
 	escaped := escapeRx.ReplaceAllString(s, "")
-	return len(escaped)
+	return utf8.RuneCountInString(escaped)
 }
 
 func max[T constraints.Ordered](a, b T) T {
@@ -84,6 +84,33 @@ func (d *tableData) parseLines(slice reflect.Value) error {
 	return nil
 }
 
+func padString(str string, size int, left bool) string {
+	needed := size - computeLength(str)
+	if needed <= 0 {
+		return str
+	}
+	pad := strings.Repeat(" ", needed)
+	if left == true {
+		return pad + str
+	} else {
+		return str + pad
+	}
+}
+
+func (d *tableData) padColumns() {
+	for i := range d.columns {
+		d.columns[i] = padString(d.columns[i], d.columnsSize[i], i == 0)
+	}
+}
+
+func (d *tableData) padLines() {
+	for l := range d.lines {
+		for i := range d.columns {
+			d.lines[l][i] = padString(d.lines[l][i], d.columnsSize[i], i == 0)
+		}
+	}
+}
+
 func reflectSlice(slice interface{}) (*tableData, error) {
 	elemType, err := checkType(slice)
 	if err != nil {
@@ -98,16 +125,17 @@ func reflectSlice(slice interface{}) (*tableData, error) {
 		return nil, err
 	}
 
+	res.padColumns()
+	res.padLines()
+
 	return res, nil
 }
 
 func (d tableData) lineFormat() string {
 	format := "│"
-	prefix := ""
 
-	for _, size := range d.columnsSize {
-		format += " %" + prefix + strconv.Itoa(size) + "s │"
-		prefix = "-"
+	for range d.columnsSize {
+		format += " %s │"
 	}
 	return format + "\n"
 }
